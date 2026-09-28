@@ -1,9 +1,9 @@
-<p align="center">
+<div align="center">
   <h1 align="center">MT7612U ZeroCD (macOS)</h1>
   <p align="center">
     <strong>A lightweight, native macOS background daemon for automatic ZeroCD mode switching on MediaTek MT7612U USB Wi-Fi dongles.</strong>
   </p>
-</p>
+</div>
 
 ---
 
@@ -11,14 +11,18 @@
 
 Many USB Wi-Fi dongles based on the **MediaTek MT7612U** chipset (such as the *Comfast CF-926AC* and various OEM adapters) feature **ZeroCD technology**. Upon first connection, they report to the operating system as a USB Mass Storage device (virtual CD-ROM) containing Windows drivers, rather than initializing as a wireless network adapter:
 
-- **ZeroCD Initial State (Storage / CD-ROM):** `VID: 0x0E8D`, `PID: 0x2870` (typically identified in USB tools as `0e8d:2870 MediaTek Inc. Љ`)
-- **Target Wireless State (802.11ac Wi-Fi):** `VID: 0x0E8D`, `PID: 0x7612` (`802.11ac WLAN`)
+- **ZeroCD Initial State (Storage / CD-ROM):** `VID: 0x0E8D`, `PID: 0x2870`
+- **Target Wireless State (802.11ac Wi-Fi):** `VID: 0x0E8D`, `PID: 0x7612` (product string `802.11ac WLAN`)
 
-Without this utility, the adapter gets stuck in CD-ROM mode and identifies as:
+Without this utility, the adapter gets stuck in CD-ROM mode. Linux `lsusb` reports it as:
+
 ```text
 ID 0e8d:2870 MediaTek Inc. Љ
 ```
-On macOS, this causes an unwanted driver installer disk image to mount on your desktop while preventing Wi-Fi drivers from binding to the device. 
+
+The trailing `Љ` is a garbled raw string emitted by the dongle firmware, not a real device name. On macOS you can confirm the IDs with `system_profiler SPUSBDataType` → `Vendor ID 0xe8d`, `Product ID 0x2870`.
+
+On macOS, this causes an unwanted driver installer disk image to mount on your desktop while preventing Wi-Fi drivers from binding to the device.
 
 **MT7612U ZeroCD** solves this transparently in the background by intercepting the device via native Apple APIs and triggering an immediate SCSI eject, instantly shifting the hardware into its native Wi-Fi mode.
 
@@ -36,9 +40,9 @@ Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-t
 
 ## 📋 Requirements
 
-- **macOS:** macOS 11 (Big Sur) or newer (tested up to macOS 15 / Sequoia).
-- **Architecture:** Apple Silicon (M1/M2/M3/M4) & Intel (x86_64).
-- **Tooling:** Command Line Tools (`xcode-select --install` or Xcode) with `swiftc` installed.
+- **macOS:** macOS 11 (Big Sur) or newer — **verified on macOS 27.0.1**.
+- **Architecture:** Apple Silicon (arm64) — verified. Intel (x86_64) builds are expected to work but are **untested**.
+- **Tooling:** Command Line Tools (`xcode-select --install`) or Xcode, which provide `swiftc`.
 - **Hardware:** MediaTek MT7612U USB Wi-Fi adapter.
 
 > **Note:** This utility handles the **hardware mode-switch** into Wi-Fi mode. You will still need appropriate macOS wireless drivers/extensions installed for the MT7612U chipset to connect to networks.
@@ -49,8 +53,8 @@ Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-t
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/MT7612U-ZeroCD-MacOS.git
-   cd MT7612U-ZeroCD-MacOS
+   git clone https://github.com/your-username/MT7612U-ZeroCD.git
+   cd MT7612U-ZeroCD
    ```
 
 2. **Run the installation script:**
@@ -63,7 +67,22 @@ The script will:
 - Install the binary to `/usr/local/bin/zerocd-daemon`.
 - Register and load a persistent `LaunchAgent` (`~/Library/LaunchAgents/com.user.zerocd-daemon.plist`) that runs automatically at user login.
 
+> **Note:** the installer needs administrator rights to copy the binary into `/usr/local/bin`, so it will prompt you for your password (`sudo`). Without it the script stops with an error.
+
 3. **Plug in your MT7612U USB dongle.** It will now seamlessly switch directly to Wi-Fi mode upon connection.
+
+<details>
+<summary><strong>Manual build (without installing the service)</strong></summary>
+
+The daemon is a single-file Swift program and can be compiled directly. Note that `bin/` is a generated directory — it is created by the build step and excluded from version control via `.gitignore`.
+
+```bash
+mkdir -p bin
+swiftc -O Sources/main.swift -o bin/zerocd-daemon
+./bin/zerocd-daemon   # run in foreground (Ctrl+C to stop)
+```
+</details>
+
 
 ---
 
@@ -77,7 +96,7 @@ tail -f /tmp/zerocd-daemon.log
 
 **Example output:**
 ```text
-[14:28:17] 🚀 ZeroCD Daemon started.
+[14:28:17] 🚀 Zer0CD Daemon started.
 [14:28:17] Filtering strictly for MediaTek MT7612U (VID: 0x0E8D, PID: 0x2870)...
 [14:28:22] Intercepted mount request for MT7612U on /dev/disk4. Suppressing mount...
 [14:28:22] Detected MediaTek MT7612U Wireless Dongle (ZeroCD Mode) on /dev/disk4 [0x0e8d:0x2870]
@@ -89,26 +108,36 @@ tail -f /tmp/zerocd-daemon.log
 
 ## 🗑️ Uninstallation
 
-To cleanly remove the daemon and LaunchAgent from your system:
+To remove the daemon and LaunchAgent from your system:
 
 ```bash
 ./scripts/uninstall.sh
 ```
+
+The script unloads and deletes the `LaunchAgent` and removes `/usr/local/bin/zerocd-daemon`. Build artifacts in `bin/` and the logs in `/tmp/zerocd-daemon.*` are left in place — delete them manually if you want a fully clean state.
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-MT7612U-ZeroCD-MacOS/
+MT7612U-ZeroCD/                     # this repository
 ├── Sources/
 │   └── main.swift                # Core daemon logic (DiskArbitration & IOKit)
 ├── scripts/
 │   ├── install.sh                # Build & LaunchAgent registration script
 │   └── uninstall.sh              # Service uninstaller script
 ├── com.user.zerocd-daemon.plist  # launchd agent definition
+├── .gitignore                    # Excludes build artifacts from version control
+├── LICENSE                       # MIT License
 └── README.md                     # Project documentation
+
+# Local only — created by ./scripts/install.sh, never committed:
+bin/
+└── zerocd-daemon                 # Compiled arm64 binary
 ```
+
+> `bin/zerocd-daemon` is a **build artifact** produced automatically by `./scripts/install.sh` — it is intentionally excluded via `.gitignore` and never committed to the repository, so it will **not** be present after `git clone`.
 
 ---
 
