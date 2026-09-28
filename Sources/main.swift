@@ -115,7 +115,7 @@ DASessionScheduleWithRunLoop(session, CFRunLoopGetCurrent(), CFRunLoopMode.defau
 DARegisterDiskMountApprovalCallback(session, nil, diskMountApprovalCallback, nil)
 DARegisterDiskAppearedCallback(session, nil, diskAppearedCallback, nil)
 
-log("🚀 Zer0CD Daemon started.")
+log("🚀 ZeroCD Daemon started.")
 log("Filtering strictly for MediaTek MT7612U (VID: 0x0E8D, PID: 0x2870)...")
 
 CFRunLoopRun()
