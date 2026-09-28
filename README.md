@@ -96,7 +96,7 @@ tail -f /tmp/zerocd-daemon.log
 
 **Example output:**
 ```text
-[14:28:17] 🚀 Zer0CD Daemon started.
+[14:28:17] 🚀 Daemon started.
 [14:28:17] Filtering strictly for MediaTek MT7612U (VID: 0x0E8D, PID: 0x2870)...
 [14:28:22] Intercepted mount request for MT7612U on /dev/disk4. Suppressing mount...
 [14:28:22] Detected MediaTek MT7612U Wireless Dongle (ZeroCD Mode) on /dev/disk4 [0x0e8d:0x2870]
