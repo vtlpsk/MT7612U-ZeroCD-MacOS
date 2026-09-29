@@ -45,7 +45,7 @@ Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-t
 - **Tooling:** Command Line Tools (`xcode-select --install`) or Xcode, which provide `swiftc`.
 - **Hardware:** MediaTek MT7612U USB Wi-Fi adapter.
 
-> **Note:** This utility handles the **hardware mode-switch** into Wi-Fi mode. You will still need appropriate macOS wireless drivers/extensions installed for the MT7612U chipset to connect to networks.
+> **Note:** This utility only handles the **hardware mode-switch** into Wi-Fi mode. macOS ships no driver for the MT7612U chipset, so out of the box the dongle will not work as a regular Wi-Fi adapter on the macOS host. The typical use case is passing the switched adapter through to a **virtual machine** (e.g., a Linux guest such as Kali for pentesting) that provides its own driver.
 
 ---
 
