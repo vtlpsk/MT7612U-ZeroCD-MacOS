@@ -53,8 +53,8 @@ Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-t
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/MT7612U-ZeroCD.git
-   cd MT7612U-ZeroCD
+   git clone https://github.com/vtlpsk/MT7612U-ZeroCD-MacOS.git
+   cd MT7612U-ZeroCD-MacOS
    ```
 
 2. **Run the installation script:**
@@ -121,7 +121,7 @@ The script unloads and deletes the `LaunchAgent` and removes `/usr/local/bin/zer
 ## 📂 Project Structure
 
 ```text
-MT7612U-ZeroCD/                     # this repository
+MT7612U-ZeroCD-MacOS/             # this repository
 ├── Sources/
 │   └── main.swift                # Core daemon logic (DiskArbitration & IOKit)
 ├── scripts/
