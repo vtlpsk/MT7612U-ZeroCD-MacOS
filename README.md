@@ -71,6 +71,8 @@ The script will:
 
 3. **Plug in your MT7612U USB dongle.** It will now seamlessly switch directly to Wi-Fi mode upon connection.
 
+> **⚠️ Important:** A short time after the dongle is connected, macOS may show a system dialog *"The disk you attached was not readable by this computer."* — click **Ignore**, do **not** click *Eject*. The daemon performs the eject and the switch to Wi-Fi mode automatically, so no manual action is needed.
+
 <details>
 <summary><strong>Manual build (without installing the service)</strong></summary>
 
