@@ -7,28 +7,20 @@
 
 ---
 
-## 📌 Overview
+## Overview
 
 Many USB Wi-Fi dongles based on the **MediaTek MT7612U** chipset (such as the *Comfast CF-926AC* and various OEM adapters) feature **ZeroCD technology**. Upon first connection, they report to the operating system as a USB Mass Storage device (virtual CD-ROM) containing Windows drivers, rather than initializing as a wireless network adapter:
 
 - **ZeroCD Initial State (Storage / CD-ROM):** `VID: 0x0E8D`, `PID: 0x2870`
-- **Target Wireless State (802.11ac Wi-Fi):** `VID: 0x0E8D`, `PID: 0x7612` (product string `802.11ac WLAN`)
+- **Target Wireless State (802.11ac Wi-Fi):** `VID: 0x0E8D`, `PID: 0x7612`
 
-Without this utility, the adapter gets stuck in CD-ROM mode. Linux `lsusb` reports it as:
-
-```text
-ID 0e8d:2870 MediaTek Inc. Љ
-```
-
-The trailing `Љ` is a garbled raw string emitted by the dongle firmware, not a real device name. On macOS you can confirm the IDs with `system_profiler SPUSBDataType` → `Vendor ID 0xe8d`, `Product ID 0x2870`.
-
-On macOS, this causes an unwanted driver installer disk image to mount on your desktop while preventing Wi-Fi drivers from binding to the device.
+Without this utility, the adapter gets stuck in CD-ROM mode. On macOS you can confirm the IDs with `system_profiler SPUSBDataType` → `Vendor ID 0xe8d`, `Product ID 0x2870`. While mounted, the device shows up as an unwanted driver installer disk image on your desktop and blocks Wi-Fi drivers from binding to it.
 
 **MT7612U ZeroCD** solves this transparently in the background by intercepting the device via native Apple APIs and triggering an immediate SCSI eject, instantly shifting the hardware into its native Wi-Fi mode.
 
 ---
 
-## ⚡ How It Works
+## How It Works
 
 Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-the-box ZeroCD switching tool. This project implements a native Swift background daemon leveraging Apple's low-level system frameworks:
 
@@ -38,7 +30,7 @@ Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-t
 
 ---
 
-## 📋 Requirements
+## Requirements
 
 - **macOS:** macOS 11 (Big Sur) or newer — **verified on macOS 27.0.1**.
 - **Architecture:** Apple Silicon (arm64) — verified. Intel (x86_64) builds are expected to work but are **untested**.
@@ -49,7 +41,7 @@ Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-t
 
 ---
 
-## 🚀 Installation
+## Installation
 
 1. **Clone the repository:**
    ```bash
@@ -71,12 +63,12 @@ The script will:
 
 3. **Plug in your MT7612U USB dongle.** It will now seamlessly switch directly to Wi-Fi mode upon connection.
 
-> **⚠️ Important:** A short time after the dongle is connected, macOS may show a system dialog *"The disk you attached was not readable by this computer."* — click **Ignore**, do **not** click *Eject*. The daemon performs the eject and the switch to Wi-Fi mode automatically, so no manual action is needed.
+> **Important:** A short time after the dongle is connected, macOS may show a system dialog *"The disk you attached was not readable by this computer."* — click **Ignore**, do **not** click *Eject*. The daemon performs the eject and the switch to Wi-Fi mode automatically, so no manual action is needed.
 
 <details>
 <summary><strong>Manual build (without installing the service)</strong></summary>
 
-The daemon is a single-file Swift program and can be compiled directly. Note that `bin/` is a generated directory — it is created by the build step and excluded from version control via `.gitignore`.
+The daemon is a single-file Swift program and can be compiled directly:
 
 ```bash
 mkdir -p bin
@@ -88,7 +80,7 @@ swiftc -O Sources/main.swift -o bin/zerocd-daemon
 
 ---
 
-## 🔍 Monitoring & Logs
+## Monitoring & Logs
 
 You can monitor daemon activity and switching events in real time:
 
@@ -98,17 +90,17 @@ tail -f /tmp/zerocd-daemon.log
 
 **Example output:**
 ```text
-[14:28:17] 🚀 Daemon started.
+[14:28:17] Daemon started.
 [14:28:17] Filtering strictly for MediaTek MT7612U (VID: 0x0E8D, PID: 0x2870)...
 [14:28:22] Intercepted mount request for MT7612U on /dev/disk4. Suppressing mount...
 [14:28:22] Detected MediaTek MT7612U Wireless Dongle (ZeroCD Mode) on /dev/disk4 [0x0e8d:0x2870]
 [14:28:22] Sending EJECT request to switch device to Wi-Fi mode [0x0e8d:0x7612]...
-[14:28:23] ✅ Successfully ejected /dev/disk4! MT7612U is switching to Wi-Fi mode.
+[14:28:23] Successfully ejected /dev/disk4! MT7612U is switching to Wi-Fi mode.
 ```
 
 ---
 
-## 🗑️ Uninstallation
+## Uninstallation
 
 To remove the daemon and LaunchAgent from your system:
 
@@ -120,29 +112,24 @@ The script unloads and deletes the `LaunchAgent` and removes `/usr/local/bin/zer
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
-MT7612U-ZeroCD-MacOS/             # this repository
+MT7612U-ZeroCD-MacOS/
 ├── Sources/
-│   └── main.swift                # Core daemon logic (DiskArbitration & IOKit)
+│   └── main.swift
 ├── scripts/
-│   ├── install.sh                # Build & LaunchAgent registration script
-│   └── uninstall.sh              # Service uninstaller script
-├── com.user.zerocd-daemon.plist  # launchd agent definition
-├── .gitignore                    # Excludes build artifacts from version control
-├── LICENSE                       # MIT License
-└── README.md                     # Project documentation
-
-# Local only — created by ./scripts/install.sh, never committed:
-bin/
-└── zerocd-daemon                 # Compiled arm64 binary
-```
+│   ├── install.sh
+│   └── uninstall.sh
+├── com.user.zerocd-daemon.plist
+├── .gitignore
+├── LICENSE
+└── README.md
 
 > `bin/zerocd-daemon` is a **build artifact** produced automatically by `./scripts/install.sh` — it is intentionally excluded via `.gitignore` and never committed to the repository, so it will **not** be present after `git clone`.
 
 ---
 
-## 📄 License
+## License
 
 This project is open-source and available under the [MIT License](LICENSE).
