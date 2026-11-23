@@ -1,69 +1,50 @@
-<div align="center">
-  <h1 align="center">MT7612U ZeroCD (macOS)</h1>
-  <p align="center">
-    <strong>A lightweight, native macOS background daemon for automatic ZeroCD mode switching on MediaTek MT7612U USB Wi-Fi dongles.</strong>
-  </p>
-</div>
+# MT7612U ZeroCD (macOS)
 
----
+A lightweight, native macOS background daemon for automatic ZeroCD mode switching on MediaTek MT7612U USB Wi-Fi dongles.
 
 ## Overview
 
-Many USB Wi-Fi dongles based on the **MediaTek MT7612U** chipset (such as the *Comfast CF-926AC* and various OEM adapters) feature **ZeroCD technology**. Upon first connection, they report to the operating system as a USB Mass Storage device (virtual CD-ROM) containing Windows drivers, rather than initializing as a wireless network adapter:
+Many USB Wi-Fi dongles based on the **MediaTek MT7612U** chipset (e.g., Comfast CF-926AC and OEM clones) use **ZeroCD technology**: on first connect they present as a USB Mass Storage device (virtual CD-ROM) with Windows drivers instead of a wireless adapter:
 
-- **ZeroCD Initial State (Storage / CD-ROM):** `VID: 0x0E8D`, `PID: 0x2870`
-- **Target Wireless State (802.11ac Wi-Fi):** `VID: 0x0E8D`, `PID: 0x7612`
+- **ZeroCD state:** `VID: 0x0E8D`, `PID: 0x2870`
+- **Wireless state:** `VID: 0x0E8D`, `PID: 0x7612`
 
-Without this utility, the adapter gets stuck in CD-ROM mode. On macOS you can confirm the IDs with `system_profiler SPUSBDataType` → `Vendor ID 0xe8d`, `Product ID 0x2870`. While mounted, the device shows up as an unwanted driver installer disk image on your desktop and blocks Wi-Fi drivers from binding to it.
-
-**MT7612U ZeroCD** solves this transparently in the background by intercepting the device via native Apple APIs and triggering an immediate SCSI eject, instantly shifting the hardware into its native Wi-Fi mode.
-
----
+Without this utility, macOS mounts the virtual CD-ROM as a driver installer image and blocks Wi-Fi drivers from binding to the hardware. The daemon intercepts the device via native Apple APIs, suppresses the mount, and issues a SCSI eject so the dongle re-enumerates as a Wi-Fi adapter.
 
 ## How It Works
 
-Unlike Linux, which commonly relies on `usb_modeswitch`, macOS lacks an out-of-the-box ZeroCD switching tool. This project implements a native Swift background daemon leveraging Apple's low-level system frameworks:
+macOS has no built-in ZeroCD switching tool like Linux `usb_modeswitch`. This project uses:
 
-1. **Mount Suppression (`DiskArbitration`):** Intercepts the volume mount request (`DARegisterDiskMountApprovalCallback`) and rejects it via `DADissenter`, preventing the virtual CD-ROM from flashing in Finder or mounting on the desktop.
-2. **Hardware Identification (`IOKit`):** Traverses the I/O Registry to inspect the parent USB device descriptors, ensuring only exact matching hardware (`0x0E8D:0x2870`) is handled. All other flash drives and external disks are untouched.
-3. **Automated Eject:** Issues a non-blocking `DADiskEject()` call (with fallback to `diskutil eject`). The adapter acknowledges the standard SCSI eject command and re-enumerates on the USB bus as a Wi-Fi device (`0x0E8D:0x7612`).
-
----
+1. **Mount Suppression (`DiskArbitration`)** — rejects the volume mount request so the virtual CD-ROM never appears in Finder.
+2. **Hardware Identification (`IOKit`)** — inspects USB descriptors and targets only `0x0E8D:0x2870`; all other disks are left untouched.
+3. **Automated Eject** — sends `DADiskEject()` (with `diskutil eject` fallback) to force the dongle into Wi-Fi mode (`0x0E8D:0x7612`).
 
 ## Requirements
 
-- **macOS:** macOS 11 (Big Sur) or newer — **verified on macOS 27.0.1**.
-- **Architecture:** Apple Silicon (arm64) — verified. Intel (x86_64) builds are expected to work but are **untested**.
-- **Tooling:** Command Line Tools (`xcode-select --install`) or Xcode, which provide `swiftc`.
-- **Hardware:** MediaTek MT7612U USB Wi-Fi adapter.
+- **macOS:** 11 (Big Sur) or newer
+- **Architecture:** Apple Silicon (arm64) verified; Intel (x86_64) untested
+- **Tooling:** Xcode Command Line Tools (`xcode-select --install`) for `swiftc`
+- **Hardware:** MediaTek MT7612U USB Wi-Fi adapter
 
-> **Note:** This utility only handles the **hardware mode-switch** into Wi-Fi mode. macOS ships no driver for the MT7612U chipset, so out of the box the dongle will not work as a regular Wi-Fi adapter on the macOS host. The typical use case is passing the switched adapter through to a **virtual machine** (e.g., a Linux guest such as Kali for pentesting) that provides its own driver.
+> **Note:** This utility performs only the hardware mode-switch. macOS ships no driver for MT7612U, so the dongle will not work as a Wi-Fi adapter on the macOS host itself. The typical use case is USB-passthrough to a virtual machine (e.g., Kali Linux for penetration testing) that provides its own driver.
 
 ---
 
 ## Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/vtlpsk/MT7612U-ZeroCD-MacOS.git
-   cd MT7612U-ZeroCD-MacOS
-   ```
+```bash
+git clone https://github.com/vtlpsk/MT7612U-ZeroCD-MacOS.git
+cd MT7612U-ZeroCD-MacOS
+./scripts/install.sh
+```
 
-2. **Run the installation script:**
-   ```bash
-   ./scripts/install.sh
-   ```
-
-The script will:
-- Compile the Swift daemon into an optimized native binary.
-- Install the binary to `/usr/local/bin/zerocd-daemon`.
-- Register and load a persistent `LaunchAgent` (`~/Library/LaunchAgents/com.user.zerocd-daemon.plist`) that runs automatically at user login.
+The installer compiles the daemon, copies it to `/usr/local/bin/zerocd-daemon`, and registers a persistent LaunchAgent at `~/Library/LaunchAgents/com.user.zerocd-daemon.plist`. It requires `sudo` to write to `/usr/local/bin`.
 
 > **Note:** the installer needs administrator rights to copy the binary into `/usr/local/bin`, so it will prompt you for your password (`sudo`). Without it the script stops with an error.
 
-3. **Plug in your MT7612U USB dongle.** It will now seamlessly switch directly to Wi-Fi mode upon connection.
+Then plug in the dongle — it switches to Wi-Fi mode automatically.
 
-> **Important:** A short time after the dongle is connected, macOS may show a system dialog *"The disk you attached was not readable by this computer."* — click **Ignore**, do **not** click *Eject*. The daemon performs the eject and the switch to Wi-Fi mode automatically, so no manual action is needed.
+> **Important:** Shortly after connecting, macOS may show a system dialog *"The disk you attached was not readable by this computer."* — click **Ignore** — do **not** click *Eject*. The daemon handles the eject automatically.
 
 <details>
 <summary><strong>Manual build (without installing the service)</strong></summary>
