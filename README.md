@@ -6,7 +6,7 @@ A lightweight, native macOS background daemon for automatic ZeroCD mode switchin
 
 Many USB Wi-Fi dongles based on the **MediaTek MT7612U** chipset (e.g., Comfast CF-926AC and OEM clones) use **ZeroCD technology**: on first connect they present as a USB Mass Storage device (virtual CD-ROM) with Windows drivers instead of a wireless adapter:
 
-- **ZeroCD state:** `VID: 0x0E8D`, `PID: 0x2870`
+- **ZeroCD state:** `VID: 0x0E8D`, `PID: 0x2870` (`lsusb`: `ID 0e8d:2870 MediaTek Inc. Љ`)
 - **Wireless state:** `VID: 0x0E8D`, `PID: 0x7612`
 
 Without this utility, macOS mounts the virtual CD-ROM as a driver installer image and blocks Wi-Fi drivers from binding to the hardware. The daemon intercepts the device via native Apple APIs, suppresses the mount, and issues a SCSI eject so the dongle re-enumerates as a Wi-Fi adapter.
