@@ -4,30 +4,34 @@ A lightweight, native macOS background daemon for automatic ZeroCD mode switchin
 
 ## Overview
 
-Many USB Wi-Fi dongles based on the **MediaTek MT7612U** chipset (e.g., Comfast CF-926AC and OEM clones) use **ZeroCD technology**: on first connect they present as a USB Mass Storage device (virtual CD-ROM) with Windows drivers instead of a wireless adapter:
+Some USB Wi-Fi adapters based on the **MediaTek MT7612U** chipset first appear as a virtual CD-ROM with Windows drivers. This utility targets adapters with these USB IDs.
 
-- **ZeroCD state:** `VID: 0x0E8D`, `PID: 0x2870` (`lsusb`: `ID 0e8d:2870 MediaTek Inc. Љ`)
-- **Wireless state:** `VID: 0x0E8D`, `PID: 0x7612`
+- **ZeroCD mode** — `0e8d:2870`
+- **Wi-Fi mode** — `0e8d:7612`
 
-While the adapter is in ZeroCD mode, macOS sees a virtual CD-ROM. The utility uses macOS APIs to block mounting and request ejection so the adapter can reappear in Wi-Fi mode.
+## Switching modes on macOS
+
+If connecting the adapter opens the dialog *"The disk you attached was not readable by this computer."*, choose one of these options.
+
+- **Eject** requests ejection of the virtual driver disk. This can switch the adapter to Wi-Fi mode manually.
+- **Ignore** dismisses the dialog. If the daemon is running, it can still request ejection automatically.
+
+To check the result independently of the daemon, run `ioreg -p IOUSB -l -w 0` in Terminal and look for the adapter. The USB vendor ID is `0x0e8d` (`3725` in decimal). A product ID of `0x7612` (`30226`) confirms Wi-Fi mode. A product ID of `0x2870` (`10352`) means the adapter is still in ZeroCD mode.
 
 ## How It Works
 
-macOS has no built-in ZeroCD switching tool like Linux `usb_modeswitch`. This project uses:
-
-1. **Mount Suppression (`DiskArbitration`)** — rejects the volume mount request so the virtual CD-ROM never appears in Finder.
-2. **Hardware Identification (`IOKit`)** — inspects USB descriptors and targets only `0x0E8D:0x2870`; all other disks are left untouched.
-3. **Automated Eject** — requests ejection for the whole virtual disk via `DADiskEject()`. If that fails and the original disk is still present, it tries `diskutil eject`.
-4. **USB Verification** — after the eject attempt, the utility waits up to 10 seconds for `0x0E8D:0x7612` at the same USB location. It logs whether it could confirm the switch.
+1. The daemon uses IOKit to match USB ID `0e8d:2870` and Disk Arbitration to decline mount requests for the matching virtual disk.
+2. When macOS reports the whole virtual disk, the daemon requests ejection via `DADiskEject()`. If that fails and the original disk is still present, it tries `diskutil eject`.
+3. After the eject attempt, the daemon waits up to 10 seconds for `0e8d:7612` at the same USB location and logs the result. macOS may take additional time to detect the virtual disk before the daemon requests ejection.
 
 ## Requirements
 
 - **macOS:** 11 (Big Sur) or newer
-- **Architecture:** Apple Silicon (arm64) verified; Intel (x86_64) untested
+- **Architecture:** Built for Apple Silicon and Intel. Startup tested on Apple Silicon.
 - **Tooling:** Xcode Command Line Tools (`xcode-select --install`) for `swiftc`
 - **Hardware:** MediaTek MT7612U USB Wi-Fi adapter
 
-> **Note:** This utility performs only the hardware mode-switch. macOS ships no driver for MT7612U, so the dongle will not work as a Wi-Fi adapter on the macOS host itself. The typical use case is USB-passthrough to a virtual machine (e.g., Kali Linux for penetration testing) that provides its own driver.
+The utility switches the adapter's hardware mode. Networking requires an MT7612U driver. One option is to pass the adapter through to a Linux virtual machine with a compatible driver.
 
 ---
 
@@ -39,11 +43,7 @@ cd MT7612U-ZeroCD-MacOS
 ./scripts/install.sh
 ```
 
-Run the installer from your logged-in macOS desktop account. It compiles the daemon, uses `sudo` to install the binary in `/usr/local/bin`, and registers a LaunchAgent for your account. Run the same script to update an existing installation.
-
-Then plug in the dongle. The daemon requests ejection when macOS reports the whole virtual disk.
-
-> If macOS shows *"The disk you attached was not readable by this computer."*, click **Ignore**. The dialog can appear during disk detection. Check the log for USB switch confirmation.
+Run the installer from your logged-in macOS desktop account. The script compiles the daemon, uses `sudo` to install the binary in `/usr/local/bin`, and registers a LaunchAgent for your account. For an existing Git clone, run `git pull --ff-only` from the project directory and then rerun `./scripts/install.sh`.
 
 <details>
 <summary><strong>Manual build (without installing the service)</strong></summary>
@@ -57,24 +57,26 @@ swiftc -O Sources/main.swift -o bin/zerocd-daemon
 ```
 </details>
 
-
 ---
 
 ## Monitoring & Logs
 
-You can monitor daemon activity and switching events in real time:
+Follow the LaunchAgent log to monitor automatic switching.
 
 ```bash
 tail -F "$HOME/Library/Logs/MT7612U-ZeroCD/zerocd-daemon.log"
 ```
 
 **Example output:**
+
 ```text
 [2026-11-28T14:28:17Z] ZeroCD daemon started. Watching for 0e8d:2870.
 [2026-11-28T14:28:22Z] /dev/disk4: detected ZeroCD (0e8d:2870), requesting eject.
 [2026-11-28T14:28:23Z] /dev/disk4: Disk Arbitration ejected the virtual disk.
 [2026-11-28T14:28:24Z] /dev/disk4: Wi-Fi mode confirmed (0e8d:7612).
 ```
+
+The LaunchAgent writes standard error to `~/Library/Logs/MT7612U-ZeroCD/zerocd-daemon.err`.
 
 ---
 
